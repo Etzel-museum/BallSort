@@ -240,6 +240,18 @@
     const t = LY.tubes[i];
     return { x: t.cx - LY.b / 2, y: t.rowY + LY.b * 0.2 };
   }
+  // Where the r-th ball of a selected tube's top run sits: the top one floats above the
+  // tube, the rest of the same-coloured run is nudged up to show it will move too.
+  function heldPos(i, r) {
+    if (r === 0) return liftPos(i);
+    const p = slotPos(i, G.tubes[i].length - 1 - r);
+    return { x: p.x, y: p.y - LY.b * 0.22 };
+  }
+  // Top same-coloured run of tube i, top ball first.
+  function topRunBalls(i) {
+    const t = G.tubes[i], n = Core.topRun(colorsOf(t));
+    return t.slice(t.length - n).reverse();
+  }
   const tf = p => `translate(${p.x}px, ${p.y}px)`;
   function setPos(el, p) { el.style.transform = tf(p); }
 
@@ -294,22 +306,24 @@
       });
     });
     if (sel !== null) {
-      const el = ballEls.get(top(sel).id);
-      el.classList.add('lifted');
-      setPos(el, liftPos(sel));
+      topRunBalls(sel).forEach((b, r) => {
+        const el = ballEls.get(b.id);
+        el.classList.add('lifted');
+        setPos(el, heldPos(sel, r));
+      });
     }
   }
 
   // ---------- animation ----------
   const anims = new Set();
-  function animate(el, frames, duration, easing) {
+  function animate(el, frames, duration, easing, delay) {
     setPos(el, frames[frames.length - 1]);
     if (!el.animate) return;
     const a = el.animate(frames.map(p => {
       const k = { transform: tf(p) };
       if (p.offset !== undefined) k.offset = p.offset;
       return k;
-    }), { duration, easing: easing || 'ease-in-out' });
+    }), { duration, easing: easing || 'ease-in-out', delay: delay || 0, fill: 'backwards' });
     anims.add(a);
     a.onfinish = a.oncancel = () => anims.delete(a);
   }
@@ -392,18 +406,24 @@
   }
   function lift(i) {
     sel = i;
-    const el = ballEls.get(top(i).id);
-    el.classList.add('lifted');
-    animate(el, [slotPos(i, G.tubes[i].length - 1), liftPos(i)], 120, 'cubic-bezier(.2,.9,.4,1.2)');
+    const len = G.tubes[i].length;
+    topRunBalls(i).forEach((b, r) => {
+      const el = ballEls.get(b.id);
+      el.classList.add('lifted');
+      animate(el, [slotPos(i, len - 1 - r), heldPos(i, r)], 120, 'cubic-bezier(.2,.9,.4,1.2)');
+    });
     sfx('pick');
   }
   function dropBack() {
     if (sel === null) return;
     const i = sel;
     sel = null;
-    const el = ballEls.get(top(i).id);
-    el.classList.remove('lifted');
-    animate(el, [liftPos(i), slotPos(i, G.tubes[i].length - 1)], 120);
+    const len = G.tubes[i].length;
+    topRunBalls(i).forEach((b, r) => {
+      const el = ballEls.get(b.id);
+      el.classList.remove('lifted');
+      animate(el, [heldPos(i, r), slotPos(i, len - 1 - r)], 120);
+    });
   }
 
   function onTubeTap(i) {
@@ -422,16 +442,31 @@
     if (G.tubes[i].length && !isDone(i)) lift(i);
   }
 
+  const STAGGER = 70;   // ms between balls of one run move
   function move(f, t) {
     sel = null;
-    const ball = G.tubes[f].pop();
-    G.tubes[t].push(ball);
-    G.history.push([f, t]);
+    const k = Core.moveCount(allColors(), f, t, CAP);
+    const run = topRunBalls(f);
+    const from = run.map((b, r) => heldPos(f, r));
+    const srcLen = G.tubes[f].length, dstLen = G.tubes[t].length;
+    // Part of the run that doesn't fit stays behind and settles back down.
+    for (let r = k; r < run.length; r++) {
+      const el = ballEls.get(run[r].id);
+      el.classList.remove('lifted');
+      animate(el, [from[r], slotPos(f, srcLen - 1 - r)], 120);
+    }
+    for (let r = 0; r < k; r++) {
+      const ball = G.tubes[f].pop();
+      G.tubes[t].push(ball);
+      const el = ballEls.get(ball.id);
+      el.classList.remove('lifted');
+      if (ball.h) { ball.h = false; el.style.backgroundImage = `url(${spriteFor(ball)})`; }
+      animate(el, flight(from[r], liftPos(t), slotPos(t, dstLen + r)), 340, 'linear', r * STAGGER);
+    }
+    G.history.push([f, t, k]);
     G.moves++;
-    const el = ballEls.get(ball.id);
-    el.classList.remove('lifted');
-    animate(el, flight(liftPos(f), liftPos(t), slotPos(t, G.tubes[t].length - 1)), 340, 'linear');
     sfx('drop');
+    for (let r = 1; r < k; r++) setTimeout(() => sfx('drop'), r * STAGGER);
 
     const newTop = top(f);
     if (newTop && newTop.h) {
@@ -446,7 +481,7 @@
         sfx('done'); buzz(30);
         tubeEls[t].classList.add('done');
         sparks(t);
-      }, 330);
+      }, 330 + (k - 1) * STAGGER);
     }
     persist();
     hud();
@@ -476,11 +511,13 @@
     if (!spend(price('undo'))) return;
     finishAnims(); clearHint(); dropBack(); finishAnims();
     G.undos++;
-    const [f, t] = G.history.pop();
-    const ball = G.tubes[t].pop();
-    G.tubes[f].push(ball);
+    const [f, t, k] = G.history.pop();   // k is missing in v1 saves, where every move was one ball
+    for (let r = 0; r < (k || 1); r++) {
+      const ball = G.tubes[t].pop();
+      G.tubes[f].push(ball);
+      animate(ballEls.get(ball.id), flight(slotPos(t, G.tubes[t].length), liftPos(f), slotPos(f, G.tubes[f].length - 1)), 360, 'linear', r * STAGGER);
+    }
     G.moves = Math.max(0, G.moves - 1);
-    animate(ballEls.get(ball.id), flight(slotPos(t, G.tubes[t].length), liftPos(f), slotPos(f, G.tubes[f].length - 1)), 360, 'linear');
     tubeEls[t].classList.toggle('done', isDone(t));
     sfx('drop');
     persist();
@@ -542,7 +579,7 @@
     $('#btnUndo').classList.toggle('dim', !G.history.length);
     $('#btnTube').classList.toggle('dim', G.extra);
     $('#tip').textContent = G.level <= 2 && !G.moves
-      ? 'הקש על מבחנה כדי להרים כדור, ואז על מבחנה אחרת כדי להניח אותו שם'
+      ? 'הקש על מבחנה כדי להרים את הכדורים העליונים, ואז על מבחנה אחרת כדי להעביר אותם'
       : '';
     $('#eggBar').innerHTML = `<img src="${Gfx.eggArt(MYSTERY, 18, 9)}" alt=""><div class="bar"><b style="width:${eggProgress() * 10}%"></b></div><span>${eggProgress()}/${Cat.LEVELS_PER_EGG}</span>`;
   }
@@ -834,7 +871,8 @@
       <div class="ribbon">איך משחקים</div>
       <div class="scroll">
       <p>המטרה: לסדר את הכדורים כך שבכל מבחנה יהיו רק כדורים בצבע אחד.</p>
-      <p>הקש על מבחנה כדי להרים את הכדור העליון, ואז הקש על מבחנה אחרת כדי להניח אותו שם. אפשר להניח כדור רק במבחנה ריקה, או על כדור באותו צבע כשיש מקום.</p>
+      <p>הקש על מבחנה כדי להרים את הכדור העליון, ואז הקש על מבחנה אחרת כדי להעביר אותו לשם. אפשר להעביר רק למבחנה ריקה, או על כדור באותו צבע כשיש מקום.</p>
+      <p>אם מתחת לכדור העליון יש עוד כדורים באותו צבע, כולם עוברים יחד, כמה שנכנסים במבחנה.</p>
       <p>על כל שלב מקבלים ${WIN_COINS} מטבעות, ועוד ${BONUS_COINS} על פתרון מושלם (3 כוכבים). במטבעות קונים ביטול מהלך, רמז, מבחנה נוספת ועיצובים.</p>
       <p>כל ${Cat.LEVELS_PER_EGG} שלבים בוקעת ביצה חדשה לאוסף. חלק מהביצים פותחות רקעים, מבחנות וסגנונות כדורים חדשים.</p>
       <p class="muted">מחיר הביטול והרמז מוכפל בכל שימוש וחוזר להתחלה בכל שלב חדש. מבחנה נוספת אפשר לקנות פעם אחת בשלב.</p>

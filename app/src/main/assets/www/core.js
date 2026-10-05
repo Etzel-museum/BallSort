@@ -45,6 +45,19 @@
     return !d.length || d[d.length - 1] === s[s.length - 1];
   }
 
+  // How many same-coloured balls sit together on top of the tube.
+  function topRun(t) {
+    let r = 0;
+    while (r < t.length && t[t.length - 1 - r] === t[t.length - 1]) r++;
+    return r;
+  }
+
+  // A move carries the whole same-coloured run from the top, as many balls as fit.
+  function moveCount(tubes, from, to, cap) {
+    if (!canMove(tubes, from, to, cap)) return 0;
+    return Math.min(topRun(tubes[from]), cap - tubes[to].length);
+  }
+
   function isSolved(tubes, cap) {
     return tubes.every(t => t.length === 0 || isComplete(t, cap));
   }
@@ -57,7 +70,7 @@
     return false;
   }
 
-  // ---------- Solver: weighted A* over single-ball moves ----------
+  // ---------- Solver: weighted A* over run moves (see moveCount) ----------
   // State = array of strings, one char per ball. Tube order is kept (so moves map back
   // to real tube indices) but the visited-set key is order-independent.
 
@@ -141,15 +154,18 @@
         const sHomo = homogeneous(s);
         if (sHomo && s.length === cap) continue;
         const ball = s[s.length - 1];
+        let run = 1;
+        while (run < s.length && s[s.length - 1 - run] === ball) run++;
         for (let t = 0; t < st.length; t++) {
           if (t === f) continue;
           const d = st[t];
           if (!d.length) {
             if (t !== firstEmpty || sHomo) continue;
           } else if (d.length >= cap || d[d.length - 1] !== ball) continue;
+          const cnt = Math.min(run, cap - d.length);
           const next = st.slice();
-          next[f] = s.slice(0, -1);
-          next[t] = d + ball;
+          next[f] = s.slice(0, -cnt);
+          next[t] = d + ball.repeat(cnt);
           const k = keyOf(next);
           const g = node.g + 1;
           const prev = seen.get(k);
@@ -194,7 +210,7 @@
     return { level: n, cap: CAP, colors: k, hard: info.hard, hidden: info.hidden, tubes: best.tubes, par: best.par };
   }
 
-  const api = { CAP, levelInfo, generateLevel, solve, canMove, isComplete, isSolved, hasAnyMove, mulberry32 };
+  const api = { CAP, levelInfo, generateLevel, solve, canMove, moveCount, topRun, isComplete, isSolved, hasAnyMove, mulberry32 };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Core = api;
 })(this);
