@@ -16,9 +16,10 @@
   }
 
   // [first level, number of colors]
-  // Levels up to 250 are unchanged from v1.0 so existing progress keeps the same boards.
-  const COLOR_STEPS = [[1, 3], [3, 4], [6, 5], [11, 6], [21, 7], [36, 8], [61, 9], [101, 10], [151, 11], [251, 12],
-                       [401, 13], [551, 14], [701, 15], [901, 16], [1151, 17], [1501, 18]];
+  // Steeper curve since v2.0 (moves now carry whole runs, which makes each board easier):
+  // 12 colours by level 121, the 18-colour ceiling by level 601.
+  const COLOR_STEPS = [[1, 3], [3, 4], [5, 5], [9, 6], [16, 7], [26, 8], [41, 9], [61, 10], [86, 11], [121, 12],
+                       [171, 13], [231, 14], [301, 15], [381, 16], [481, 17], [601, 18]];
 
   function levelInfo(n) {
     let colors = 3;

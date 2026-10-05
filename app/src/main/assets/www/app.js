@@ -2,6 +2,7 @@
   'use strict';
 
   const Core = window.Core, Gfx = window.Gfx, Cat = window.Catalog;
+  const { t: T, nm } = window.I18n;
   const CAP = Core.CAP;
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
@@ -17,7 +18,7 @@
       v: 2, coins: START_COINS, maxLevel: 1,
       settings: { sound: true, vibrate: true },
       owned: [], skin: 'glossy', bg: 'night', tube: 'classic',
-      eggs: 0, stars: {}, game: null, seenHelp: false,
+      eggs: 0, stars: {}, game: null, seenHelp: false, lang: 'he',
     };
   }
   function load() {
@@ -36,6 +37,7 @@
     if (!Cat.findItem('bg', s.bg)) s.bg = 'night';
     if (!Cat.findItem('skin', s.skin)) s.skin = 'glossy';
     if (!Cat.findItem('tube', s.tube)) s.tube = 'classic';
+    if (s.lang !== 'en') s.lang = 'he';
     return s;
   }
   function persist() {
@@ -132,6 +134,18 @@
   const price = kind => kind === 'tube' ? BASE.tube : BASE[kind] * Math.pow(2, kind === 'undo' ? G.undos : G.hints);
 
   // ---------- screens ----------
+  // Switches all fixed labels and the page direction; dynamic text is built with T() on render.
+  function applyLang() {
+    window.I18n.setLang(S.lang);
+    const html = document.documentElement;
+    html.lang = S.lang;
+    html.dir = S.lang === 'en' ? 'ltr' : 'rtl';
+    document.title = T('logo1') + (T('logo2') ? ' ' + T('logo2') : '');
+    $$('[data-i18n]').forEach(e => { e.textContent = T(e.dataset.i18n); });
+    $('.logo-2').hidden = !T('logo2');
+    $('.logo').classList.toggle('single', !T('logo2'));
+    if (screen === 'game' && G) hud(); else refreshHome();
+  }
   function applyTheme() {
     const bg = Cat.findItem('bg', S.bg) || Cat.ITEMS.bg[0];
     $('#scene').innerHTML = Gfx.scene(bg.id);
@@ -158,7 +172,7 @@
 
   function refreshHome() {
     $$('.coinVal').forEach(e => { e.textContent = S.coins; });
-    $('#playLevel').textContent = 'שלב ' + (S.game && !S.game.won ? S.game.level : S.maxLevel);
+    $('#playLevel').textContent = T('level', { n: S.game && !S.game.won ? S.game.level : S.maxLevel });
 
     // decorative mini board
     const box = $('#homeTubes');
@@ -190,10 +204,10 @@
     const p = pendingEggs();
     card.classList.toggle('ready', p > 0);
     if (p > 0) {
-      card.innerHTML = `${egg}<div class="txt">${p > 1 ? p + ' ביצים מחכות' : 'ביצה מחכה'} לבקיעה!<div class="muted" style="font-size:13px;opacity:.8">הקש כדי לבקוע</div></div>`;
+      card.innerHTML = `${egg}<div class="txt">${p > 1 ? T('eggsWaiting', { n: p }) : T('eggWaiting')}<div class="muted" style="font-size:13px;opacity:.8">${T('tapToHatch')}</div></div>`;
     } else {
       const left = Cat.LEVELS_PER_EGG - eggProgress();
-      card.innerHTML = `${egg}<div class="txt">עוד ${left} ${left === 1 ? 'שלב' : 'שלבים'} לביצה הבאה<div class="bar"><b style="width:${eggProgress() * 10}%"></b></div></div>`;
+      card.innerHTML = `${egg}<div class="txt">${left === 1 ? T('levelsToEgg1') : T('levelsToEgg', { n: left })}<div class="bar"><b style="width:${eggProgress() * 10}%"></b></div></div>`;
     }
   }
 
@@ -496,7 +510,7 @@
 
   function spend(amount) {
     if (S.coins < amount) {
-      toast('אין מספיק מטבעות. מטבעות מרוויחים בסיום כל שלב.');
+      toast(T('noCoins'));
       sfx('bad');
       return false;
     }
@@ -507,7 +521,7 @@
 
   function undo() {
     if (G.won) return;
-    if (!G.history.length) { toast('אין מהלך לבטל'); return; }
+    if (!G.history.length) { toast(T('noUndo')); return; }
     if (!spend(price('undo'))) return;
     finishAnims(); clearHint(); dropBack(); finishAnims();
     G.undos++;
@@ -530,27 +544,27 @@
     if (S.coins < price('hint')) { spend(price('hint')); return; }
     finishAnims(); clearHint(); dropBack(); finishAnims();
     hintBusy = true;
-    const slow = setTimeout(() => toast('מחפש רמז…', 4000), 250);
+    const slow = setTimeout(() => toast(T('searchingHint'), 4000), 250);
     const game = G;
     const sol = await call({ type: 'solve', tubes: allColors(), max: 150000 });
     clearTimeout(slow);
     hintBusy = false;
     if (game !== G || G.won) return;
-    if (!sol) { toast('אין פתרון מהמצב הזה. בטל כמה מהלכים, הוסף מבחנה או התחל מחדש.', 3500); return; }
+    if (!sol) { toast(T('noSolution'), 3500); return; }
     if (!sol.moves.length) return;
     spend(price('hint'));
     G.hints++;
     const [f, t] = sol.moves[0];
     tubeEls[f].classList.add('hint-from');
     tubeEls[t].classList.add('hint-to');
-    toast('העבר כדור מהמבחנה הצהובה לירוקה');
+    toast(T('hintToast'));
     persist();
     hud();
   }
 
   function addTube() {
     if (G.won) return;
-    if (G.extra) { toast('אפשר להוסיף מבחנה אחת בכל שלב'); return; }
+    if (G.extra) { toast(T('oneTube')); return; }
     if (!spend(BASE.tube)) return;
     G.extra = true;
     G.tubes.push([]);
@@ -566,8 +580,8 @@
   // ---------- HUD ----------
   function hud() {
     if (!G) return;
-    $('#levelTitle').textContent = 'שלב ' + G.level;
-    $('#levelBadge').textContent = G.hard ? '★ שלב קשה ★' : G.hidden ? 'כדורים נסתרים' : '';
+    $('#levelTitle').textContent = T('level', { n: G.level });
+    $('#levelBadge').textContent = G.hard ? T('hardBadge') : G.hidden ? T('hiddenBadge') : '';
     $$('.coinVal').forEach(e => { e.textContent = S.coins; });
     const pu = price('undo'), ph = price('hint');
     $('#pUndo').textContent = pu;
@@ -579,7 +593,7 @@
     $('#btnUndo').classList.toggle('dim', !G.history.length);
     $('#btnTube').classList.toggle('dim', G.extra);
     $('#tip').textContent = G.level <= 2 && !G.moves
-      ? 'הקש על מבחנה כדי להרים את הכדורים העליונים, ואז על מבחנה אחרת כדי להעביר אותם'
+      ? T('tip')
       : '';
     $('#eggBar').innerHTML = `<img src="${Gfx.eggArt(MYSTERY, 18, 9)}" alt=""><div class="bar"><b style="width:${eggProgress() * 10}%"></b></div><span>${eggProgress()}/${Cat.LEVELS_PER_EGG}</span>`;
   }
@@ -651,16 +665,16 @@
     const home = () => { closeModal(); showHome(); };
     const starHtml = [1, 2, 3].map(k => `<span class="${k <= stars ? 'on' : ''}" style="animation-delay:${0.15 + k * 0.18}s">★</span>`).join('');
     openModal(`
-      <div class="ribbon gold">כל הכבוד!</div>
+      <div class="ribbon gold">${T('wellDone')}</div>
       <div class="stars">${starHtml}</div>
-      <p class="center">שלב ${done} הושלם ב-${moves} מהלכים</p>
+      <p class="center">${T('solvedIn', { n: done, m: moves })}</p>
       ${first ? `<div class="win-coins">+${earned} <i class="coin"></i></div>
-        <p class="center muted">${stars === 3 ? 'כולל בונוס ' + BONUS_COINS + ' על פתרון מושלם' : 'פתרון ב-' + G.par + ' מהלכים או פחות = 3 כוכבים ובונוס'}</p>`
-        : '<p class="center muted">שלב שכבר נפתר בעבר אינו מזכה במטבעות</p>'}
-      ${eggDue ? '<p class="center" style="color:#ffe08a;font-weight:800">🥚 ביצה חדשה מחכה לך!</p>' : ''}
+        <p class="center muted">${stars === 3 ? T('bonusIncl', { b: BONUS_COINS }) : T('bonusHow', { p: G.par })}</p>`
+        : `<p class="center muted">${T('replayNoCoins')}</p>`}
+      ${eggDue ? `<p class="center" style="color:#ffe08a;font-weight:800">${T('newEggWaiting')}</p>` : ''}
       <div class="btn-row" style="margin-top:6px">
-        <button class="chunky green wide" id="mNext" style="flex:2">${eggDue ? 'לבקוע את הביצה' : first ? 'לשלב הבא' : 'חזרה לשלב ' + S.maxLevel}</button>
-        <button class="chunky purple wide" id="mHome">בית</button>
+        <button class="chunky green wide" id="mNext" style="flex:2">${eggDue ? T('hatchIt') : first ? T('nextLevel') : T('backToLevel', { n: S.maxLevel })}</button>
+        <button class="chunky purple wide" id="mHome">${T('home')}</button>
       </div>`, next);
     on('#mNext', next);
     on('#mHome', home);
@@ -669,12 +683,12 @@
   function stuck() {
     if (G.won || !$('#modal').hidden) return;
     openModal(`
-      <div class="ribbon">אין יותר מהלכים</div>
+      <div class="ribbon">${T('noMoves')}</div>
       ${closeX}
-      <p class="center">אפשר לבטל מהלך, להוסיף מבחנה או להתחיל את השלב מחדש.</p>
-      <button class="chunky blue wide" id="mUndo">ביטול מהלך &nbsp;${coinPrice(price('undo'))}</button>
-      ${G.extra ? '' : `<button class="chunky blue wide" id="mTube">הוספת מבחנה &nbsp;${coinPrice(BASE.tube)}</button>`}
-      <button class="chunky green wide" id="mRestart">התחלה מחדש</button>`);
+      <p class="center">${T('noMovesText')}</p>
+      <button class="chunky blue wide" id="mUndo">${T('undoMove')} &nbsp;${coinPrice(price('undo'))}</button>
+      ${G.extra ? '' : `<button class="chunky blue wide" id="mTube">${T('addTube')} &nbsp;${coinPrice(BASE.tube)}</button>`}
+      <button class="chunky green wide" id="mRestart">${T('restartLevel')}</button>`);
     on('#mUndo', () => { closeModal(); undo(); });
     on('#mTube', () => { closeModal(); addTube(); });
     on('#mRestart', () => { closeModal(); restartLevel(); });
@@ -683,9 +697,9 @@
   function confirmRestart() {
     if (!G.moves) { restartLevel(); return; }
     openModal(`
-      <div class="ribbon">להתחיל מחדש?</div>
-      <p class="center">השלב יחזור למצב ההתחלתי.${G.extra ? ' המבחנה שנוספה תישאר.' : ''}</p>
-      <div class="btn-row"><button class="chunky green wide" id="mYes">כן, מחדש</button><button class="chunky purple wide" id="mNo">לא</button></div>`);
+      <div class="ribbon">${T('restartQ')}</div>
+      <p class="center">${T('restartText')}${G.extra ? T('restartKeepTube') : ''}</p>
+      <div class="btn-row"><button class="chunky green wide" id="mYes">${T('yesRestart')}</button><button class="chunky purple wide" id="mNo">${T('no')}</button></div>`);
     on('#mYes', () => { closeModal(); restartLevel(); });
     on('#mNo', closeModal);
   }
@@ -703,8 +717,8 @@
     rewards.forEach(r => { const k = r.kind + ':' + r.item.id; if (!S.owned.includes(k)) S.owned.push(k); });
     persist();
 
-    const KIND = { bg: 'רקע חדש', tube: 'מבחנה חדשה', skin: 'כדורים חדשים' };
-    const rewardHtml = [`+${rar.coins} מטבעות`].concat(rewards.map(r => `${KIND[r.kind]}: ${r.item.name}`)).join('<br>');
+    const KIND = { bg: T('newBg'), tube: T('newTube'), skin: T('newSkin') };
+    const rewardHtml = [T('plusCoins', { n: rar.coins })].concat(rewards.map(r => `${KIND[r.kind]}: ${nm(r.item)}`)).join('<br>');
     const done = () => {
       closeModal();
       $$('.coinVal').forEach(e => { e.textContent = S.coins; });
@@ -713,17 +727,17 @@
       else refreshHome();
     };
     openModal(`
-      <div class="ribbon gold">ביצה חדשה!</div>
+      <div class="ribbon gold">${T('newEgg')}</div>
       <div class="hatch" id="hatch">
         <div class="hatch-stage"><div class="rays"></div>
           <div class="hatch-egg shake" id="hEgg"><img id="hImg" src="${Gfx.eggArt(MYSTERY, 132, 9)}" alt="">${CRACKS}</div>
         </div>
         <div class="hatch-info">
-          <div class="rarity" style="color:${rar.color}">${rar.name}</div>
-          <div class="egg-name">${def.name}</div>
+          <div class="rarity" style="color:${rar.color}">${nm(rar)}</div>
+          <div class="egg-name">${nm(def)}</div>
           <div class="reward">${rewardHtml}</div>
         </div>
-        <button class="chunky gold wide" id="mCollect" style="visibility:hidden">אסוף</button>
+        <button class="chunky gold wide" id="mCollect" style="visibility:hidden">${T('collect')}</button>
       </div>`, null);
     sfx('crack');
     setTimeout(() => { sfx('crack'); buzz(20); }, 500);
@@ -752,20 +766,20 @@
   let colTab = 'eggs', pendingBuy = null;
   function collection(tab) {
     if (tab) colTab = tab;
-    const TABS = [['eggs', 'ביצים'], ['bg', 'רקעים'], ['tube', 'מבחנות'], ['skin', 'כדורים']];
+    const TABS = [['eggs', T('tabEggs')], ['bg', T('tabBg')], ['tube', T('tabTube')], ['skin', T('tabSkin')]];
     let body = '';
     if (colTab === 'eggs') {
       const total = Cat.EGGS.length;
-      body = `<p class="center muted" style="margin-bottom:10px">נאספו ${Math.min(S.eggs, total)} מתוך ${total} · ביצה חדשה כל ${Cat.LEVELS_PER_EGG} שלבים</p><div class="grid">`;
+      body = `<p class="center muted" style="margin-bottom:10px">${T('eggsCollected', { n: Math.min(S.eggs, total), t: total, k: Cat.LEVELS_PER_EGG })}</p><div class="grid">`;
       Cat.EGGS.forEach((def, i) => {
         const n = i + 1, have = n <= S.eggs;
         const rar = Cat.RARITY[def.rarity];
         body += `<div class="card"><div class="thumb"><img class="egg${have ? '' : ' locked'}" src="${Gfx.eggArt(have ? def : MYSTERY, 60, have ? n : 9)}" alt="">${have ? '' : '<span class="q">?</span>'}</div>
-          <div class="name">${have ? def.name : '???'}</div>
-          ${have ? `<div class="rar" style="color:${rar.color}">${rar.name}</div>` : `<div class="lock">שלב ${n * Cat.LEVELS_PER_EGG}</div>`}</div>`;
+          <div class="name">${have ? nm(def) : '???'}</div>
+          ${have ? `<div class="rar" style="color:${rar.color}">${nm(rar)}</div>` : `<div class="lock">${T('level', { n: n * Cat.LEVELS_PER_EGG })}</div>`}</div>`;
       });
       if (S.eggs > total) {
-        body += `<div class="card"><div class="thumb"><img class="egg" src="${Gfx.eggArt(Cat.GOLD_EGG, 60, 99)}" alt=""></div><div class="name">${Cat.GOLD_EGG.name}</div><div class="rar" style="color:#ffc83d">×${S.eggs - total}</div></div>`;
+        body += `<div class="card"><div class="thumb"><img class="egg" src="${Gfx.eggArt(Cat.GOLD_EGG, 60, 99)}" alt=""></div><div class="name">${nm(Cat.GOLD_EGG)}</div><div class="rar" style="color:#ffc83d">×${S.eggs - total}</div></div>`;
       }
       body += '</div>';
     } else {
@@ -775,21 +789,21 @@
         const have = owned(colTab, it);
         const selected = S[colTab] === it.id;
         let action;
-        if (selected) action = '<button class="chunky gold" disabled>נבחר ✓</button>';
-        else if (have) action = `<button class="chunky green" data-pick="${key}">בחירה</button>`;
-        else if (it.egg) action = `<div class="lock">🔒 ביצה בשלב ${it.egg * Cat.LEVELS_PER_EGG}</div>`;
-        else if (pendingBuy === key) action = `<button class="chunky red" data-buy="${key}">לקנות?</button>`;
+        if (selected) action = `<button class="chunky gold" disabled>${T('selected')}</button>`;
+        else if (have) action = `<button class="chunky green" data-pick="${key}">${T('choose')}</button>`;
+        else if (it.egg) action = `<div class="lock">${T('eggAtLevel', { n: it.egg * Cat.LEVELS_PER_EGG })}</div>`;
+        else if (pendingBuy === key) action = `<button class="chunky red" data-buy="${key}">${T('buyQ')}</button>`;
         else action = `<button class="chunky blue" data-buy="${key}">${coinPrice(it.price)}</button>`;
-        body += `<div class="card${selected ? ' sel' : ''}">${thumb(colTab, it)}<div class="name">${it.name}</div>${action}</div>`;
+        body += `<div class="card${selected ? ' sel' : ''}">${thumb(colTab, it)}<div class="name">${nm(it)}</div>${action}</div>`;
       }
       body += '</div>';
     }
     openModal(`
-      <div class="ribbon">אוסף</div>
+      <div class="ribbon">${T('collection')}</div>
       ${closeX}
       <div class="tabs">${TABS.map(([k, n]) => `<button data-tab="${k}" class="${k === colTab ? 'on' : ''}">${n}</button>`).join('')}</div>
       <div class="scroll" id="colBody">${body}</div>
-      <p class="center muted" style="margin:10px 0 0">יש לך <b>${S.coins}</b> מטבעות</p>`, () => { pendingBuy = null; closeModal(); afterThemeChange(); });
+      <p class="center muted" style="margin:10px 0 0">${T('youHave', { n: S.coins })}</p>`, () => { pendingBuy = null; closeModal(); afterThemeChange(); });
     $('#sheet .tabs').addEventListener('click', e => {
       const t = e.target.dataset.tab;
       if (t) { pendingBuy = null; collection(t); }
@@ -836,9 +850,9 @@
       cells += `<button data-n="${n}" class="${n === cur ? 'cur' : ''}">${n}<small>${n < S.maxLevel ? '★'.repeat(st) : ''}</small></button>`;
     }
     openModal(`
-      <div class="ribbon">בחירת שלב</div>
+      <div class="ribbon">${T('chooseLevel')}</div>
       ${closeX}
-      <p class="center muted">אפשר לחזור לכל שלב שכבר נפתר</p>
+      <p class="center muted">${T('chooseLevelText')}</p>
       <div class="scroll"><div class="levels">${cells}</div></div>`);
     $('#sheet .levels').addEventListener('click', e => {
       const btn = e.target.closest('button');
@@ -855,11 +869,13 @@
   function settings() {
     const tg = v => `<span class="toggle${v ? ' on' : ''}"></span>`;
     openModal(`
-      <div class="ribbon">הגדרות</div>
+      <div class="ribbon">${T('settings')}</div>
       ${closeX}
-      <button class="chunky blue wide menu-item" id="mSound">צלילים ${tg(S.settings.sound)}</button>
-      <button class="chunky blue wide menu-item" id="mVib">רטט ${tg(S.settings.vibrate)}</button>
-      <button class="chunky purple wide" id="mHelp">איך משחקים</button>`);
+      <button class="chunky blue wide menu-item" id="mSound">${T('sound')} ${tg(S.settings.sound)}</button>
+      <button class="chunky blue wide menu-item" id="mVib">${T('vibration')} ${tg(S.settings.vibrate)}</button>
+      <button class="chunky blue wide menu-item" id="mLang">${T('language')} <span class="lang-pill">${T('langName')}</span></button>
+      <button class="chunky purple wide" id="mHelp">${T('howToPlay')}</button>`);
+    on('#mLang', () => { S.lang = S.lang === 'en' ? 'he' : 'en'; persist(); applyLang(); settings(); });
     on('#mSound', () => { S.settings.sound = !S.settings.sound; persist(); settings(); });
     on('#mVib', () => { S.settings.vibrate = !S.settings.vibrate; persist(); if (S.settings.vibrate) buzz(40); settings(); });
     on('#mHelp', () => help(settings));
@@ -868,16 +884,16 @@
   function help(back) {
     const done = () => { S.seenHelp = true; persist(); if (back) back(); else closeModal(); };
     openModal(`
-      <div class="ribbon">איך משחקים</div>
+      <div class="ribbon">${T('howToPlay')}</div>
       <div class="scroll">
-      <p>המטרה: לסדר את הכדורים כך שבכל מבחנה יהיו רק כדורים בצבע אחד.</p>
-      <p>הקש על מבחנה כדי להרים את הכדור העליון, ואז הקש על מבחנה אחרת כדי להעביר אותו לשם. אפשר להעביר רק למבחנה ריקה, או על כדור באותו צבע כשיש מקום.</p>
-      <p>אם מתחת לכדור העליון יש עוד כדורים באותו צבע, כולם עוברים יחד, כמה שנכנסים במבחנה.</p>
-      <p>על כל שלב מקבלים ${WIN_COINS} מטבעות, ועוד ${BONUS_COINS} על פתרון מושלם (3 כוכבים). במטבעות קונים ביטול מהלך, רמז, מבחנה נוספת ועיצובים.</p>
-      <p>כל ${Cat.LEVELS_PER_EGG} שלבים בוקעת ביצה חדשה לאוסף. חלק מהביצים פותחות רקעים, מבחנות וסגנונות כדורים חדשים.</p>
-      <p class="muted">מחיר הביטול והרמז מוכפל בכל שימוש וחוזר להתחלה בכל שלב חדש. מבחנה נוספת אפשר לקנות פעם אחת בשלב.</p>
+      <p>${T('help1')}</p>
+      <p>${T('help2')}</p>
+      <p>${T('help3')}</p>
+      <p>${T('help4', { w: WIN_COINS, b: BONUS_COINS })}</p>
+      <p>${T('help5', { k: Cat.LEVELS_PER_EGG })}</p>
+      <p class="muted">${T('help6')}</p>
       </div>
-      <button class="chunky green wide" id="mOk">${back ? 'חזרה' : 'מתחילים!'}</button>`, done);
+      <button class="chunky green wide" id="mOk">${back ? T('back') : T('letsGo')}</button>`, done);
     on('#mOk', done);
   }
 
@@ -931,6 +947,7 @@
   };
 
   applyTheme();
+  applyLang();
   showHome();
   if (!S.seenHelp) help();
 })();

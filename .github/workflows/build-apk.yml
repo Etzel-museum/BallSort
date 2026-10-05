@@ -45,7 +45,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: מיון כדורים – גרסה עדכנית
+          name: מבחנות – גרסה עדכנית
           body: התקנה - הורד/י את BallSort.apk לטלפון ופתח/י אותו כדי להתקין.
           files: BallSort.apk
           make_latest: true

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>מיון כדורים</title>
+<title>מבחנות</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,8 +19,8 @@
     </div>
 
     <div class="logo">
-      <div class="logo-1">מיון</div>
-      <div class="logo-2">כדורים</div>
+      <div class="logo-1" data-i18n="logo1">מבחנות</div>
+      <div class="logo-2" data-i18n="logo2"></div>
     </div>
     <div id="homeTubes" class="home-tubes"></div>
 
@@ -28,17 +28,17 @@
 
     <div class="home-actions">
       <button id="playBtn" class="chunky green play">
-        <span class="play-label">שחק</span>
+        <span class="play-label" data-i18n="play">שחק</span>
         <span id="playLevel" class="play-level">שלב 1</span>
       </button>
       <div class="home-row">
         <button id="hCollection" class="chunky purple">
           <svg viewBox="0 0 24 24"><path d="M12 3c-3.6 0-6 5-6 9.5A6 6 0 0 0 12 19a6 6 0 0 0 6-6.5C18 8 15.6 3 12 3z"/><path d="M7 11l2.5 1.5L12 10l2.5 2.5L17 11"/></svg>
-          <span>אוסף</span>
+          <span data-i18n="collection">אוסף</span>
         </button>
         <button id="hLevels" class="chunky blue">
           <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>
-          <span>שלבים</span>
+          <span data-i18n="levels">שלבים</span>
         </button>
       </div>
     </div>
@@ -64,21 +64,21 @@
     <footer>
       <button id="btnRestart" class="tool chunky purple">
         <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>
-        <span class="lbl">מחדש</span>
+        <span class="lbl" data-i18n="restart">מחדש</span>
       </button>
       <button id="btnUndo" class="tool chunky purple">
         <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>
-        <span class="lbl">ביטול</span>
+        <span class="lbl" data-i18n="undo">ביטול</span>
         <span class="badge"><i class="coin"></i><b id="pUndo">2</b></span>
       </button>
       <button id="btnHint" class="tool chunky purple">
         <svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/></svg>
-        <span class="lbl">רמז</span>
+        <span class="lbl" data-i18n="hint">רמז</span>
         <span class="badge"><i class="coin"></i><b id="pHint">5</b></span>
       </button>
       <button id="btnTube" class="tool chunky purple">
         <svg viewBox="0 0 24 24"><path d="M7 3v13a3 3 0 0 0 6 0V3"/><path d="M5 3h10"/><path d="M19 13v6M16 16h6"/></svg>
-        <span class="lbl">מבחנה</span>
+        <span class="lbl" data-i18n="tube">מבחנה</span>
         <span class="badge"><i class="coin"></i><b id="pTube">25</b></span>
       </button>
     </footer>
@@ -92,6 +92,7 @@
   <script src="core.js"></script>
   <script src="gfx.js"></script>
   <script src="catalog.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
