@@ -16,7 +16,9 @@
   }
 
   // [first level, number of colors]
-  const COLOR_STEPS = [[1, 3], [3, 4], [6, 5], [11, 6], [21, 7], [36, 8], [61, 9], [101, 10], [151, 11], [251, 12]];
+  // Levels up to 250 are unchanged from v1.0 so existing progress keeps the same boards.
+  const COLOR_STEPS = [[1, 3], [3, 4], [6, 5], [11, 6], [21, 7], [36, 8], [61, 9], [101, 10], [151, 11], [251, 12],
+                       [401, 13], [551, 14], [701, 15], [901, 16], [1151, 17], [1501, 18]];
 
   function levelInfo(n) {
     let colors = 3;
@@ -166,7 +168,8 @@
     const info = levelInfo(n);
     const k = info.colors, empties = 2;
     const rng = mulberry32((n * 2654435761) ^ 0x5bd1e995);
-    const wanted = info.hard ? 3 : 1;   // hard levels: hardest of 3 solvable candidates
+    // Hard levels: hardest of 3 solvable candidates (2 on the biggest boards, to keep generation quick).
+    const wanted = info.hard ? (k >= 15 ? 2 : 3) : 1;
     let best = null, found = 0;
 
     for (let attempt = 0; attempt < 200 && found < wanted; attempt++) {
